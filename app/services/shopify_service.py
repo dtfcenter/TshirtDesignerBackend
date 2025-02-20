@@ -138,31 +138,30 @@ class ShopifyService:
     async def get_products_by_ids(self, product_ids: list):
         try:
             print("Fetching products with IDs:", product_ids)
-            data = self.supabase.table('products').select("""
-                *,
-                sizes:product_sizes (
-                    id,
-                    value,
-                    price
-                ),
-                colors:product_colors (
-                    id,
-                    name,
-                    mockup_front
-                )
-            """).in_('id', product_ids).execute()
             
-            print("Supabase response:", data.data)  # Debug için
+            # Önce product_sizes tablosunu kontrol et
+            sizes_data = self.supabase.table('product_sizes').select('*').in_('product_id', product_ids).execute()
+            print("Sizes data:", sizes_data.data)
             
-            # Veri yapısını kontrol et ve düzelt
+            # Sonra product_colors tablosunu kontrol et
+            colors_data = self.supabase.table('product_colors').select('*').in_('product_id', product_ids).execute()
+            print("Colors data:", colors_data.data)
+            
+            # Ana ürün verisini al
+            data = self.supabase.table('products').select('*').in_('id', product_ids).execute()
+            
+            # Veriyi birleştir
             products = []
             for product in data.data:
-                if not product.get('sizes'):
-                    print(f"Warning: No sizes found for product {product.get('id')}")
+                product_sizes = [s for s in sizes_data.data if s['product_id'] == product['id']]
+                product_colors = [c for c in colors_data.data if c['product_id'] == product['id']]
+                
+                if not product_sizes:
+                    print(f"Warning: No sizes found for product {product['id']}")
                     continue
                     
-                if not product.get('colors'):
-                    print(f"Warning: No colors found for product {product.get('id')}")
+                if not product_colors:
+                    print(f"Warning: No colors found for product {product['id']}")
                     continue
                     
                 products.append({
@@ -173,17 +172,17 @@ class ShopifyService:
                         {
                             'value': size['value'],
                             'price': float(size['price'])
-                        } for size in product['sizes']
+                        } for size in product_sizes
                     ],
                     'colors': [
                         {
                             'name': color['name'],
                             'mockup_front': color.get('mockup_front', '')
-                        } for color in product['colors']
+                        } for color in product_colors
                     ]
                 })
             
-            print("Processed products:", products)  # Debug için
+            print("Processed products:", products)
             return products
             
         except Exception as e:
