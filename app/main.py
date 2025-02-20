@@ -19,7 +19,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://tshirt-designer-frontend.vercel.app",
-        "https://yourdomain.com"  # Domain alındığında eklenecek
+        "https://yourdomain.com",  # Domain alındığında eklenecek
+        "http://localhost:3000"    # Lokal geliştirme için
     ],
     allow_credentials=True,
     allow_methods=["*"],
