@@ -1,4 +1,3 @@
-import shopify
 from typing import Dict
 import os
 from dotenv import load_dotenv
