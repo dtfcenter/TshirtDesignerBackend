@@ -17,7 +17,10 @@ app = FastAPI(title="Printed T-Shirt Web")
 # CORS ayarları
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://tshirt-designer-frontend.vercel.app",
+        "https://yourdomain.com"  # Domain alındığında eklenecek
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
