@@ -1,9 +1,16 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from .routers import upload, shopify  # shopify router'ı ekledik
+from dotenv import load_dotenv
+import os
+from .routers import shopify  # sadece shopify router'ı
 from .services.shopify_service import ShopifyService
-from .models.product import ProductCreate
+
+# .env dosyasını yükle
+load_dotenv()
+
+# Environment değişkenlerini kontrol et
+print("SUPABASE_URL:", os.getenv("SUPABASE_URL"))
+print("SUPABASE_SERVICE_KEY:", os.getenv("SUPABASE_SERVICE_KEY"))
 
 app = FastAPI(title="Printed T-Shirt Web")
 
@@ -16,19 +23,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Router'ı ekle
-app.include_router(upload.router, prefix="/api")
-
-# Statik dosyalar için mockups klasörünü mount et
-app.mount("/mockups", StaticFiles(directory="assets/mockups"), name="mockups")
-
 router = APIRouter()
 shopify_service = ShopifyService()
-
-@router.post("/products/publish-to-shopify")
-async def publish_to_shopify(product: ProductCreate):
-    result = shopify_service.create_product(product.dict())
-    return result
 
 @app.get("/")
 async def root():

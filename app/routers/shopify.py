@@ -1,34 +1,21 @@
 from fastapi import APIRouter, HTTPException
-from supabase import create_client, Client
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
+from ..services.shopify_service import ShopifyService
 
 router = APIRouter()
-
-# Supabase bağlantısı
-supabase: Client = create_client(
-    os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_SERVICE_KEY")
-)
+shopify_service = ShopifyService()
 
 @router.post("/upload-products")
 async def upload_products(request: dict):
     try:
         product_ids = request.get('productIds', [])
         
-        # Test amaçlı önce sadece verileri çekelim
-        data = supabase.table('products').select("""
-            *,
-            sizes:product_sizes (value, price),
-            colors:product_colors (name, mockup_front, mockup_back)
-        """).in_('id', product_ids).execute()
+        # Önce ürünleri Supabase'den al
+        products = await shopify_service.get_products_by_ids(product_ids)
         
-        # Şimdilik sadece çektiğimiz verileri loglayalım
-        print("Fetched products:", data.data)
+        # Sonra Shopify'a yükle
+        results = await shopify_service.upload_to_shopify(products)
         
-        return {"success": True, "message": f"Received {len(product_ids)} product IDs"}
+        return {"success": True, "results": results}
         
     except Exception as e:
         print("Error:", str(e))
