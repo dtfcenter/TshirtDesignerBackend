@@ -192,44 +192,60 @@ class ShopifyService:
 
     async def upload_to_shopify(self, products: list):
         try:
+            print("\n=== Starting Shopify Upload ===")
+            print(f"Total products to upload: {len(products)}")
+            
             results = []
             for product in products:
                 print("\n--- Processing Product ---")
                 print(f"Title: {product['title']}")
+                print("Product data:", product)  # Tüm ürün verisini göster
                 
                 # Her ürün için Shopify'a yükleme yap
-                result = self.create_product({
-                    'title': product['title'],
-                    'description': product['description'],
-                    'sizes': [
-                        {
-                            'value': size['value'],
-                            'price': size['price']
-                        } for size in product['sizes']
-                    ],
-                    'colors': [
-                        {
-                            'name': color['name'],
-                            'mockupFront': {
-                                'attachment': color['mockup_front'].split(',')[-1] if color.get('mockup_front') else None,  # base64 prefix'i kaldır
-                                'filename': f"{color['name']}_front.png",
-                                'alt': f"{color['name']} - Front View"
-                            }
-                        } for color in product['colors']
-                    ]
-                })
-                
-                print("Upload result:", result)
-                results.append({
-                    'product_id': product['id'],
-                    'title': product['title'],
-                    'shopify_result': result
-                })
+                try:
+                    result = self.create_product({
+                        'title': product['title'],
+                        'description': product.get('description', ''),
+                        'sizes': [
+                            {
+                                'value': str(size['value']),  # String'e çevir
+                                'price': str(size['price'])   # String'e çevir
+                            } for size in product.get('sizes', [])
+                        ],
+                        'colors': [
+                            {
+                                'name': color['name'],
+                                'mockupFront': {
+                                    'attachment': color['mockup_front'].split(',')[-1] if color.get('mockup_front') else None,
+                                    'filename': f"{color['name']}_front.png",
+                                    'alt': f"{color['name']} - Front View"
+                                } if color.get('mockup_front') else None
+                            } for color in product.get('colors', [])
+                        ]
+                    })
+                    
+                    print("Create product result:", result)
+                    results.append({
+                        'product_id': product['id'],
+                        'title': product['title'],
+                        'shopify_result': result
+                    })
+                except Exception as product_error:
+                    print(f"Error processing product {product['title']}: {str(product_error)}")
+                    results.append({
+                        'product_id': product['id'],
+                        'title': product['title'],
+                        'error': str(product_error)
+                    })
                 
                 await asyncio.sleep(1)
             
+            print("\n=== Upload Results ===")
+            print(results)
             return results
             
         except Exception as e:
             print("Error uploading to Shopify:", str(e))
+            print("Error type:", type(e))
+            print("Error details:", getattr(e, 'details', 'No details'))
             raise e 
