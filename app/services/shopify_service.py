@@ -137,13 +137,55 @@ class ShopifyService:
 
     async def get_products_by_ids(self, product_ids: list):
         try:
+            print("Fetching products with IDs:", product_ids)
             data = self.supabase.table('products').select("""
                 *,
-                sizes:product_sizes (value, price),
-                colors:product_colors (name, mockup_front, mockup_back)
+                sizes:product_sizes (
+                    id,
+                    value,
+                    price
+                ),
+                colors:product_colors (
+                    id,
+                    name,
+                    mockup_front
+                )
             """).in_('id', product_ids).execute()
             
-            return data.data
+            print("Supabase response:", data.data)  # Debug için
+            
+            # Veri yapısını kontrol et ve düzelt
+            products = []
+            for product in data.data:
+                if not product.get('sizes'):
+                    print(f"Warning: No sizes found for product {product.get('id')}")
+                    continue
+                    
+                if not product.get('colors'):
+                    print(f"Warning: No colors found for product {product.get('id')}")
+                    continue
+                    
+                products.append({
+                    'id': product['id'],
+                    'title': product['title'],
+                    'description': product.get('description', ''),
+                    'sizes': [
+                        {
+                            'value': size['value'],
+                            'price': float(size['price'])
+                        } for size in product['sizes']
+                    ],
+                    'colors': [
+                        {
+                            'name': color['name'],
+                            'mockup_front': color.get('mockup_front', '')
+                        } for color in product['colors']
+                    ]
+                })
+            
+            print("Processed products:", products)  # Debug için
+            return products
+            
         except Exception as e:
             print("Error fetching products:", str(e))
             raise e
