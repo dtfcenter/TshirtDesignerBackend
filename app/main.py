@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from .routers import upload  # router'ı import et
+from .routers import upload, shopify  # shopify router'ı ekledik
 from .services.shopify_service import ShopifyService
 from .models.product import ProductCreate
 
@@ -35,4 +35,7 @@ async def root():
     return {"message": "Printed T-Shirt Web API"}
 
 # Router'ı /api prefix'i ile ekle
-app.include_router(router, prefix="/api") 
+app.include_router(router, prefix="/api")
+
+# Shopify router'ını ekle
+app.include_router(shopify.router, prefix="/api/shopify", tags=["shopify"]) 
