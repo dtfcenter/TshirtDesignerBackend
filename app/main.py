@@ -20,7 +20,8 @@ app.add_middleware(
     allow_origins=[
         "https://tshirt-designer-frontend.vercel.app",
         "https://yourdomain.com",  # Domain alındığında eklenecek
-        "http://localhost:3000"    # Lokal geliştirme için
+        "http://localhost:3000",    # Lokal geliştirme için
+        "https://tshirtdesignerbackend-production.up.railway.app"  # Railway URL
     ],
     allow_credentials=True,
     allow_methods=["*"],
