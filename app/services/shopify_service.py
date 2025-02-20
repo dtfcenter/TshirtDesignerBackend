@@ -5,6 +5,7 @@ from supabase import create_client, Client
 import asyncio
 import base64
 import requests
+import json
 
 load_dotenv()
 
@@ -32,6 +33,9 @@ class ShopifyService:
 
     def create_product(self, product_data: Dict) -> Dict:
         try:
+            print("\n=== Shopify Ürün Oluşturma Detayları ===")
+            print("Gönderilen ürün verisi:", json.dumps(product_data, indent=2))
+            
             # Shopify API endpoint ve headers
             store_name = os.getenv('SHOPIFY_SHOP_URL')
             access_token = os.getenv('SHOPIFY_ACCESS_TOKEN')
@@ -112,9 +116,12 @@ class ShopifyService:
                 headers=headers
             )
 
-            print(f"Shopify response status: {response.status_code}")
-            print(f"Shopify response: {response.text[:200]}")
-
+            print("Shopify API yanıtı:", response.text)
+            print("Yanıt kodu:", response.status_code)
+            
+            if not response.ok:
+                print("Hata detayı:", response.json())
+            
             if response.status_code == 201:
                 data = response.json()
                 return {
@@ -129,11 +136,10 @@ class ShopifyService:
                 }
 
         except Exception as e:
-            print(f"❌ Create product error: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            print("Ürün oluşturma hatası:", str(e))
+            print("Hata tipi:", type(e))
+            print("Hata detayları:", getattr(e, 'details', 'Detay yok'))
+            raise e
 
     async def get_products_by_ids(self, product_ids: list):
         try:
