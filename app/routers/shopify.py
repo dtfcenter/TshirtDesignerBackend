@@ -21,6 +21,7 @@ async def upload_products(request: dict):
         # Önce ürünleri Supabase'den al
         products = await service.get_products_by_ids(product_ids)
         
+        
         # Sonra Shopify'a yükle
         results = await service.upload_to_shopify(products)
         
@@ -29,3 +30,5 @@ async def upload_products(request: dict):
     except Exception as e:
         print("Error:", str(e))
         raise HTTPException(status_code=500, detail=str(e)) 
+    
+    
