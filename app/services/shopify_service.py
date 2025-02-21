@@ -47,31 +47,30 @@ class ShopifyService:
 
             # Görselleri hazırla
             images = []
+            image_position_map = {}  # Renk-görsel eşleştirmesi için
+            position = 1
+            
             for color in product_data['colors']:
                 if color.get('mockupFront'):
                     try:
-                        print(f"\n=== Processing Image ===")
-                        print(f"Color: {color['name']}")
+                        print(f"\n=== Processing Image for {color['name']} ===")
                         
-                        # Eğer mockupFront zaten bir dictionary ise
                         if isinstance(color['mockupFront'], dict):
-                            images.append(color['mockupFront'])
-                            print("✅ Image data already in correct format")
-                        else:
-                            print("❌ Invalid image format")
-                            
+                            image_data = color['mockupFront']
+                            image_data['position'] = position  # Görsel pozisyonunu ekle
+                            images.append(image_data)
+                            image_position_map[color['name']] = position  # Renk-pozisyon eşleştirmesini kaydet
+                            position += 1
+                            print(f"✅ Image processed for {color['name']}")
+                        
                     except Exception as e:
                         print(f"❌ Error processing image: {str(e)}")
-                        print(f"Error type: {type(e)}")
-
-            print(f"\nTotal images to process: {len(product_data['colors'])}")
-            print(f"Successfully processed images: {len(images)}")
 
             # Varyantları hazırla
             variants = []
             for size in product_data['sizes']:
                 for color in product_data['colors']:
-                    variants.append({
+                    variant = {
                         'option1': size['value'],  # Beden
                         'option2': color['name'],  # Renk
                         'price': str(size['price']),
@@ -80,7 +79,13 @@ class ShopifyService:
                         'inventory_management': 'shopify',
                         'inventory_policy': 'continue',
                         'inventory_quantity': 100
-                    })
+                    }
+                    
+                    # Varyanta görsel pozisyonunu ekle
+                    if color['name'] in image_position_map:
+                        variant['image_id'] = "{{image_{}}}".format(image_position_map[color['name']])
+                    
+                    variants.append(variant)
 
             # Ürün verisi
             product_payload = {
