@@ -33,6 +33,10 @@ class ShopifyService:
 
     def create_product(self, product_data: Dict) -> Dict:
         try:
+            print("\n=== Debug Product Data ===")
+            print("Colors:", [c['name'] for c in product_data['colors']])
+            print("Sizes:", [s['value'] for s in product_data['sizes']])
+            
             print("\n=== Shopify Ürün Oluşturma Detayları ===")
             print("Gönderilen ürün verisi:", json.dumps(product_data, indent=2))
             
