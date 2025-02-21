@@ -74,7 +74,6 @@ class ShopifyService:
                     "vendor": "T-Shirt Design Platform",
                     "product_type": "T-Shirt",
                     "images": images,
-                    "variants": [],  # Boş varyant listesi ekleyelim
                     "options": [
                         {
                             'name': 'Size',
@@ -86,6 +85,17 @@ class ShopifyService:
                             'position': 2,
                             'values': [c['name'] for c in product_data['colors']]
                         }
+                    ],
+                    "variants": [
+                        {
+                            'option1': size['value'],
+                            'option2': color['name'],
+                            'price': str(size['price']),
+                            'requires_shipping': True,
+                            'taxable': True
+                        }
+                        for size in product_data['sizes']
+                        for color in product_data['colors']
                     ]
                 }
             }
