@@ -45,10 +45,9 @@ class ShopifyService:
                 "Content-Type": "application/json"
             }
 
-            # Görselleri hazırla
+            # Görselleri hazırla ve yükle
             images = []
-            image_position_map = {}  # Renk-görsel eşleştirmesi için
-            position = 1
+            image_id_map = {}  # Renk-görsel ID eşleştirmesi için
             
             for color in product_data['colors']:
                 if color.get('mockupFront'):
@@ -57,22 +56,52 @@ class ShopifyService:
                         
                         if isinstance(color['mockupFront'], dict):
                             image_data = color['mockupFront']
-                            image_data['position'] = position  # Görsel pozisyonunu ekle
                             images.append(image_data)
-                            image_position_map[color['name']] = position  # Renk-pozisyon eşleştirmesini kaydet
-                            position += 1
                             print(f"✅ Image processed for {color['name']}")
                         
                     except Exception as e:
                         print(f"❌ Error processing image: {str(e)}")
 
-            # Varyantları hazırla
+            # Önce ürünü görselsiz oluştur
+            initial_payload = {
+                "product": {
+                    "title": product_data['title'],
+                    "body_html": product_data['description'],
+                    "vendor": "T-Shirt Design Platform",
+                    "product_type": "T-Shirt",
+                    "images": images,
+                    "options": [
+                        {'name': 'Size', 'values': list(set(s['value'] for s in product_data['sizes']))},
+                        {'name': 'Color', 'values': list(set(c['name'] for c in product_data['colors']))}
+                    ]
+                }
+            }
+
+            # Ürünü oluştur
+            response = requests.post(
+                f"{shop_url}/products.json",
+                json=initial_payload,
+                headers=headers
+            )
+            
+            if response.status_code != 201:
+                raise Exception(f"Product creation failed: {response.text}")
+
+            product_data = response.json()['product']
+            
+            # Görsel ID'lerini eşleştir
+            for image in product_data['images']:
+                if 'alt' in image and ' - Front View' in image['alt']:
+                    color_name = image['alt'].replace(' - Front View', '')
+                    image_id_map[color_name] = image['id']
+
+            # Varyantları güncelle
             variants = []
             for size in product_data['sizes']:
                 for color in product_data['colors']:
                     variant = {
-                        'option1': size['value'],  # Beden
-                        'option2': color['name'],  # Renk
+                        'option1': size['value'],
+                        'option2': color['name'],
                         'price': str(size['price']),
                         'requires_shipping': True,
                         'taxable': True,
@@ -81,63 +110,36 @@ class ShopifyService:
                         'inventory_quantity': 100
                     }
                     
-                    # Varyanta görsel pozisyonunu ekle
-                    if color['name'] in image_position_map:
-                        variant['image_id'] = "{{image_{}}}".format(image_position_map[color['name']])
+                    # Varyanta görsel ID'sini ekle
+                    if color['name'] in image_id_map:
+                        variant['image_id'] = image_id_map[color['name']]
                     
                     variants.append(variant)
 
-            # Ürün verisi
-            product_payload = {
+            # Varyantları güncelle
+            update_payload = {
                 "product": {
-                    "title": product_data['title'],
-                    "body_html": product_data['description'],
-                    "vendor": "T-Shirt Design Platform",
-                    "product_type": "T-Shirt",
-                    "images": images,
-                    "variants": variants,
-                    "options": [
-                        {'name': 'Size', 'values': list(set(s['value'] for s in product_data['sizes']))},
-                        {'name': 'Color', 'values': list(set(c['name'] for c in product_data['colors']))}
-                    ]
+                    "id": product_data['id'],
+                    "variants": variants
                 }
             }
 
-            print("\n=== Shopify Request ===")
-            print(f"Images in payload: {len(product_payload['product']['images'])}")
-            print("First image data:", product_payload['product']['images'][0] if images else "No images")
-            print("Image structure:", [
-                {
-                    'name': color['name'],
-                    'mockup_front': color.get('mockup_front', '')[:100] + '...' if color.get('mockup_front') else None
-                } for color in product_data['colors']
-            ])
-
-            # Shopify'a gönder
-            print("Sending request to Shopify...")
-            response = requests.post(
-                f"{shop_url}/products.json",
-                json=product_payload,
+            update_response = requests.put(
+                f"{shop_url}/products/{product_data['id']}.json",
+                json=update_payload,
                 headers=headers
             )
 
-            print("Shopify API yanıtı:", response.text)
-            print("Yanıt kodu:", response.status_code)
-            
-            if not response.ok:
-                print("Hata detayı:", response.json())
-            
-            if response.status_code == 201:
-                data = response.json()
+            if update_response.status_code == 200:
                 return {
                     'success': True,
-                    'product_id': data['product']['id'],
-                    'shopify_url': f"https://{store_name}.myshopify.com/products/{data['product']['handle']}"
+                    'product_id': product_data['id'],
+                    'shopify_url': f"https://{store_name}.myshopify.com/products/{product_data['handle']}"
                 }
             else:
                 return {
                     'success': False,
-                    'error': f"Shopify API error: {response.status_code} - {response.text}"
+                    'error': f"Variant update failed: {update_response.text}"
                 }
 
         except Exception as e:
