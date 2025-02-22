@@ -34,8 +34,15 @@ class ShopifyService:
     def create_product(self, product_data: Dict) -> Dict:
         try:
             print("\n=== Debug Product Data ===")
-            print("Colors:", [c['name'] for c in product_data['colors']])
-            print("Sizes:", [s['value'] for s in product_data['sizes']])
+            print("Product Data Keys:", product_data.keys())  # Hangi anahtarlar var görelim
+            print("Full Product Data:", json.dumps(product_data, indent=2))  # Tüm veriyi görelim
+            
+            if 'sizes' not in product_data:
+                print("Warning: 'sizes' key not found in product_data")
+                return {
+                    'success': False,
+                    'error': "Missing required field: sizes"
+                }
             
             print("\n=== Shopify Ürün Oluşturma Detayları ===")
             print("Gönderilen ürün verisi:", json.dumps(product_data, indent=2))
@@ -117,6 +124,7 @@ class ShopifyService:
                 if 'alt' in image and ' - Front View' in image['alt']:
                     color_name = image['alt'].replace(' - Front View', '')
                     image_id_map[color_name] = image['id']
+                    print(f"Mapped color {color_name} to image ID {image['id']}")  # Debug için
 
             # Varyantları güncelle
             variants = []
@@ -130,13 +138,11 @@ class ShopifyService:
                         'taxable': True,
                         'inventory_management': 'shopify',
                         'inventory_policy': 'continue',
-                        'inventory_quantity': 100
+                        'inventory_quantity': 100,
+                        'image_id': image_id_map.get(color['name'])  # Direkt olarak image_id atıyoruz
                     }
                     
-                    # Varyanta görsel ID'sini ekle
-                    if color['name'] in image_id_map:
-                        variant['image_id'] = image_id_map[color['name']]
-                    
+                    print(f"Creating variant for {color['name']} with image ID: {image_id_map.get(color['name'])}")  # Debug için
                     variants.append(variant)
 
             # Varyantları güncelle
