@@ -73,14 +73,13 @@ class ShopifyService:
                     except Exception as e:
                         print(f"❌ Error processing image: {str(e)}")
 
-            # Önce ürünü görselsiz oluştur
+            # Önce ürünü ve görselleri oluştur
             initial_payload = {
                 "product": {
                     "title": product_data['title'],
                     "body_html": product_data['description'],
                     "vendor": "T-Shirt Design Platform",
                     "product_type": "T-Shirt",
-                    "images": images,
                     "options": [
                         {
                             'name': 'Size',
@@ -99,10 +98,21 @@ class ShopifyService:
                             'option2': color['name'],
                             'price': str(size['price']),
                             'requires_shipping': True,
-                            'taxable': True
+                            'taxable': True,
+                            'inventory_management': 'shopify',
+                            'inventory_policy': 'continue',
+                            'inventory_quantity': 100
                         }
                         for size in product_data['sizes']
                         for color in product_data['colors']
+                    ],
+                    "images": [
+                        {
+                            **image_data,
+                            "variant_ids": []  # Varyant ID'leri sonra eklenecek
+                        }
+                        for color in product_data['colors']
+                        if (image_data := color.get('mockupFront'))
                     ]
                 }
             }
@@ -117,59 +127,37 @@ class ShopifyService:
             if response.status_code != 201:
                 raise Exception(f"Product creation failed: {response.text}")
 
-            product_data = response.json()['product']
+            created_product = response.json()['product']
             
-            # Görsel ID'lerini eşleştir
-            for image in product_data['images']:
+            # Görsel-varyant eşleştirmesi
+            variant_map = {}
+            for variant in created_product['variants']:
+                color_name = variant['option2']  # Color option
+                variant_map.setdefault(color_name, []).append(variant['id'])
+
+            # Görselleri güncelle
+            for image in created_product['images']:
                 if 'alt' in image and ' - Front View' in image['alt']:
                     color_name = image['alt'].replace(' - Front View', '')
-                    image_id_map[color_name] = image['id']
-                    print(f"Mapped color {color_name} to image ID {image['id']}")  # Debug için
+                    if color_name in variant_map:
+                        # Görseli ilgili varyantlarla eşleştir
+                        update_response = requests.put(
+                            f"{shop_url}/products/{created_product['id']}/images/{image['id']}.json",
+                            json={
+                                "image": {
+                                    "id": image['id'],
+                                    "variant_ids": variant_map[color_name]
+                                }
+                            },
+                            headers=headers
+                        )
+                        print(f"Updated image for {color_name} with variants: {variant_map[color_name]}")
 
-            # Varyantları güncelle
-            variants = []
-            for size in product_data['sizes']:
-                for color in product_data['colors']:
-                    variant = {
-                        'option1': size['value'],
-                        'option2': color['name'],
-                        'price': str(size['price']),
-                        'requires_shipping': True,
-                        'taxable': True,
-                        'inventory_management': 'shopify',
-                        'inventory_policy': 'continue',
-                        'inventory_quantity': 100,
-                        'image_id': image_id_map.get(color['name'])  # Direkt olarak image_id atıyoruz
-                    }
-                    
-                    print(f"Creating variant for {color['name']} with image ID: {image_id_map.get(color['name'])}")  # Debug için
-                    variants.append(variant)
-
-            # Varyantları güncelle
-            update_payload = {
-                "product": {
-                    "id": product_data['id'],
-                    "variants": variants
-                }
+            return {
+                'success': True,
+                'product_id': created_product['id'],
+                'shopify_url': f"https://{store_name}.myshopify.com/products/{created_product['handle']}"
             }
-
-            update_response = requests.put(
-                f"{shop_url}/products/{product_data['id']}.json",
-                json=update_payload,
-                headers=headers
-            )
-
-            if update_response.status_code == 200:
-                return {
-                    'success': True,
-                    'product_id': product_data['id'],
-                    'shopify_url': f"https://{store_name}.myshopify.com/products/{product_data['handle']}"
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': f"Variant update failed: {update_response.text}"
-                }
 
         except Exception as e:
             print("Ürün oluşturma hatası:", str(e))
